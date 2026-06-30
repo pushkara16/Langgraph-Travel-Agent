@@ -55,6 +55,8 @@ llm = ChatGoogleGenerativeAI(
     temperature=0
 )
 
+
+
 def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
     def entry_node(state: State) -> dict:
         tool_call_id = state["messages"][-1].tool_calls[0]["id"]
@@ -98,7 +100,31 @@ assistant_runnable = primary_assistant_prompt | llm.bind_tools(
 )
 
 builder = StateGraph(State)
+def route_specialist(
+    state: State,
+    safe_tools: list,
+    safe_node: str,
+    sensitive_node: str,
+):
+    route = tools_condition(state)
 
+    if route == END:
+        return END
+
+    tool_calls = state["messages"][-1].tool_calls
+
+    # Return control to the primary assistant
+    if any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls):
+        return "leave_skill"
+
+    safe_tool_names = [tool.name for tool in safe_tools]
+
+    # If every tool call is safe, execute safe tools
+    if all(tc["name"] in safe_tool_names for tc in tool_calls):
+        return safe_node
+
+    # Otherwise execute sensitive tools
+    return sensitive_node
 
 def user_info(state: State):
     return {"user_info": fetch_user_flight_information.invoke({})}
@@ -124,30 +150,13 @@ builder.add_node(
 )
 
 
-def route_update_flight(
-    state: State,
-):
-    route = tools_condition(state)
-    if route == END:
-        return END
-    tool_calls = state["messages"][-1].tool_calls
-    did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
-    if did_cancel:
-        return "leave_skill"
-    safe_toolnames = [t.name for t in update_flight_safe_tools]
-    if all(tc["name"] in safe_toolnames for tc in tool_calls):
-        return "update_flight_safe_tools"
-    return "update_flight_sensitive_tools"
-
-
-builder.add_edge("update_flight_sensitive_tools", "update_flight")
-builder.add_edge("update_flight_safe_tools", "update_flight")
-builder.add_conditional_edges(
-    "update_flight",
-    route_update_flight,
-    ["update_flight_sensitive_tools", "update_flight_safe_tools", "leave_skill", END],
-)
-
+def route_update_flight(state: State):
+    return route_specialist(
+        state,
+        update_flight_safe_tools,
+        "update_flight_safe_tools",
+        "update_flight_sensitive_tools",
+    )
 # This node will be shared for exiting all specialized assistants
 def pop_dialog_state(state: State) -> dict:
     """Pop the dialog stack and return to the main assistant.
@@ -189,21 +198,13 @@ builder.add_node(
     create_tool_node_with_fallback(book_car_rental_sensitive_tools),
 )
 
-
-def route_book_car_rental(
-    state: State,
-):
-    route = tools_condition(state)
-    if route == END:
-        return END
-    tool_calls = state["messages"][-1].tool_calls
-    did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
-    if did_cancel:
-        return "leave_skill"
-    safe_toolnames = [t.name for t in book_car_rental_safe_tools]
-    if all(tc["name"] in safe_toolnames for tc in tool_calls):
-        return "book_car_rental_safe_tools"
-    return "book_car_rental_sensitive_tools"
+def route_book_car_rental(state: State):
+    return route_specialist(
+        state,
+        book_car_rental_safe_tools,
+        "book_car_rental_safe_tools",
+        "book_car_rental_sensitive_tools",
+    )
 
 
 builder.add_edge("book_car_rental_sensitive_tools", "book_car_rental")
@@ -235,20 +236,13 @@ builder.add_node(
 )
 
 
-def route_book_hotel(
-    state: State,
-):
-    route = tools_condition(state)
-    if route == END:
-        return END
-    tool_calls = state["messages"][-1].tool_calls
-    did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
-    if did_cancel:
-        return "leave_skill"
-    tool_names = [t.name for t in book_hotel_safe_tools]
-    if all(tc["name"] in tool_names for tc in tool_calls):
-        return "book_hotel_safe_tools"
-    return "book_hotel_sensitive_tools"
+def route_book_hotel(state: State):
+    return route_specialist(
+        state,
+        book_hotel_safe_tools,
+        "book_hotel_safe_tools",
+        "book_hotel_sensitive_tools",
+    )
 
 
 builder.add_edge("book_hotel_sensitive_tools", "book_hotel")
@@ -276,20 +270,13 @@ builder.add_node(
 )
 
 
-def route_book_excursion(
-    state: State,
-):
-    route = tools_condition(state)
-    if route == END:
-        return END
-    tool_calls = state["messages"][-1].tool_calls
-    did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
-    if did_cancel:
-        return "leave_skill"
-    tool_names = [t.name for t in book_excursion_safe_tools]
-    if all(tc["name"] in tool_names for tc in tool_calls):
-        return "book_excursion_safe_tools"
-    return "book_excursion_sensitive_tools"
+def route_book_excursion(state: State):
+    return route_specialist(
+        state,
+        book_excursion_safe_tools,
+        "book_excursion_safe_tools",
+        "book_excursion_sensitive_tools",
+    )
 
 
 builder.add_edge("book_excursion_sensitive_tools", "book_excursion")
