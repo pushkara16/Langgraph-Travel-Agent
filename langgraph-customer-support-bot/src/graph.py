@@ -55,7 +55,25 @@ llm = ChatGoogleGenerativeAI(
     temperature=0
 )
 
+def route_specialist(
+    state: State,
+    safe_tools: list,
+    safe_node: str,
+    sensitive_node: str,
+):
+    if tools_condition(state) == END:
+        return END
 
+    tool_name = state["messages"][-1].tool_calls[0]["name"]
+
+    if tool_name == CompleteOrEscalate.__name__:
+        return "leave_skill"
+
+    for tool in safe_tools:
+        if tool_name == tool.name:
+            return safe_node
+
+    return sensitive_node
 
 def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
     def entry_node(state: State) -> dict:
@@ -100,31 +118,6 @@ assistant_runnable = primary_assistant_prompt | llm.bind_tools(
 )
 
 builder = StateGraph(State)
-def route_specialist(
-    state: State,
-    safe_tools: list,
-    safe_node: str,
-    sensitive_node: str,
-):
-    route = tools_condition(state)
-
-    if route == END:
-        return END
-
-    tool_calls = state["messages"][-1].tool_calls
-
-    # Return control to the primary assistant
-    if any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls):
-        return "leave_skill"
-
-    safe_tool_names = [tool.name for tool in safe_tools]
-
-    # If every tool call is safe, execute safe tools
-    if all(tc["name"] in safe_tool_names for tc in tool_calls):
-        return safe_node
-
-    # Otherwise execute sensitive tools
-    return sensitive_node
 
 def user_info(state: State):
     return {"user_info": fetch_user_flight_information.invoke({})}
