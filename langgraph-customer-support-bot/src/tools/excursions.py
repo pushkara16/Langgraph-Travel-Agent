@@ -7,22 +7,19 @@ from langchain_core.tools import tool
 
 LOCAL_FILE = "data/travel2.sqlite"
 
-
 @tool
 def search_trip_recommendations(
     location: Optional[str] = None,
     name: Optional[str] = None,
-    keywords: Optional[str] = None,
 ) -> list[dict]:
-    """Search for trip recommendations based on location, name, and keywords.
+    """Search for trip recommendations based on location and name.
 
     Args:
-        location (Optional[str]): The location of the trip recommendation. Defaults to None.
-        name (Optional[str]): The name of the trip recommendation. Defaults to None.
-        keywords (Optional[str]): The keywords associated with the trip recommendation. Defaults to None.
+        location: The location of the trip recommendation.
+        name: The name of the trip recommendation.
 
     Returns:
-        list[dict]: A list of trip recommendation dictionaries matching the search criteria.
+        A list of trip recommendation dictionaries matching the search criteria.
     """
     conn = sqlite3.connect(LOCAL_FILE)
     cursor = conn.cursor()
@@ -33,24 +30,22 @@ def search_trip_recommendations(
     if location:
         query += " AND location LIKE ?"
         params.append(f"%{location}%")
+
     if name:
         query += " AND name LIKE ?"
         params.append(f"%{name}%")
-    if keywords:
-        keyword_list = keywords.split(",")
-        keyword_conditions = " OR ".join(["keywords LIKE ?" for _ in keyword_list])
-        query += f" AND ({keyword_conditions})"
-        params.extend([f"%{keyword.strip()}%" for keyword in keyword_list])
 
     cursor.execute(query, params)
     results = cursor.fetchall()
 
+    column_names = [column[0] for column in cursor.description]
+
     conn.close()
 
     return [
-        dict(zip([column[0] for column in cursor.description], row)) for row in results
+        dict(zip(column_names, row))
+        for row in results
     ]
-
 
 @tool
 def book_excursion(recommendation_id: int) -> str:

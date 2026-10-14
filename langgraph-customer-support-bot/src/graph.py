@@ -6,8 +6,17 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import tools_condition
-from portkey_ai import PORTKEY_GATEWAY_URL, createHeaders
+from langgraph.prebuilt import ToolNode
+from dotenv import load_dotenv
 
+load_dotenv()
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0
+)
 from src.assistant import (
     Assistant,
     State,
@@ -45,7 +54,6 @@ from src.utils.utilities import (
     ToBookExcursion,
     ToFlightBookingAssistant,
     ToHotelBookingAssistant,
-    create_tool_node_with_fallback,
 )
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -103,7 +111,6 @@ builder = StateGraph(State)
 def user_info(state: State):
     return {"user_info": fetch_user_flight_information.invoke({})}
 
-
 builder.add_node("fetch_user_info", user_info)
 builder.add_edge(START, "fetch_user_info")
 
@@ -116,28 +123,34 @@ builder.add_node("update_flight", Assistant(update_flight_runnable))
 builder.add_edge("enter_update_flight", "update_flight")
 builder.add_node(
     "update_flight_sensitive_tools",
-    create_tool_node_with_fallback(update_flight_sensitive_tools),
+    ToolNode(update_flight_sensitive_tools),
 )
 builder.add_node(
     "update_flight_safe_tools",
-    create_tool_node_with_fallback(update_flight_safe_tools),
+    ToolNode(update_flight_safe_tools),
 )
 
 
-def route_update_flight(
-    state: State,
-):
+def route_update_flight(state: State):
+
     route = tools_condition(state)
+
     if route == END:
         return END
+
     tool_calls = state["messages"][-1].tool_calls
-    did_cancel = any(tc["name"] == CompleteOrEscalate.__name__ for tc in tool_calls)
-    if did_cancel:
-        return "leave_skill"
+
+    for tc in tool_calls:
+        if tc["name"] == CompleteOrEscalate.__name__:
+            return "leave_skill"
+
     safe_toolnames = [t.name for t in update_flight_safe_tools]
-    if all(tc["name"] in safe_toolnames for tc in tool_calls):
-        return "update_flight_safe_tools"
-    return "update_flight_sensitive_tools"
+
+    for tc in tool_calls:
+        if tc["name"] not in safe_toolnames:
+            return "update_flight_sensitive_tools"
+
+    return "update_flight_safe_tools"
 
 
 builder.add_edge("update_flight_sensitive_tools", "update_flight")
@@ -182,11 +195,11 @@ builder.add_node("book_car_rental", Assistant(book_car_rental_runnable))
 builder.add_edge("enter_book_car_rental", "book_car_rental")
 builder.add_node(
     "book_car_rental_safe_tools",
-    create_tool_node_with_fallback(book_car_rental_safe_tools),
+    ToolNode(book_car_rental_safe_tools),
 )
 builder.add_node(
     "book_car_rental_sensitive_tools",
-    create_tool_node_with_fallback(book_car_rental_sensitive_tools),
+    ToolNode(book_car_rental_sensitive_tools),
 )
 
 
@@ -227,11 +240,11 @@ builder.add_node("book_hotel", Assistant(book_hotel_runnable))
 builder.add_edge("enter_book_hotel", "book_hotel")
 builder.add_node(
     "book_hotel_safe_tools",
-    create_tool_node_with_fallback(book_hotel_safe_tools),
+    ToolNode(book_hotel_safe_tools),
 )
 builder.add_node(
     "book_hotel_sensitive_tools",
-    create_tool_node_with_fallback(book_hotel_sensitive_tools),
+    ToolNode(book_hotel_sensitive_tools),
 )
 
 
@@ -268,11 +281,11 @@ builder.add_node("book_excursion", Assistant(book_excursion_runnable))
 builder.add_edge("enter_book_excursion", "book_excursion")
 builder.add_node(
     "book_excursion_safe_tools",
-    create_tool_node_with_fallback(book_excursion_safe_tools),
+    ToolNode(book_excursion_safe_tools),
 )
 builder.add_node(
     "book_excursion_sensitive_tools",
-    create_tool_node_with_fallback(book_excursion_sensitive_tools),
+    ToolNode(book_excursion_sensitive_tools),
 )
 
 
@@ -303,7 +316,7 @@ builder.add_conditional_edges(
 # Primary assistant
 builder.add_node("primary_assistant", Assistant(assistant_runnable))
 builder.add_node(
-    "primary_assistant_tools", create_tool_node_with_fallback(primary_assistant_tools)
+    "primary_assistant_tools", ToolNode(primary_assistant_tools)
 )
 
 
@@ -366,7 +379,6 @@ builder.add_conditional_edges("fetch_user_info", route_to_workflow)
 memory = MemorySaver()
 graph = builder.compile(
     checkpointer=memory,
-    # Let the user approve or deny the use of sensitive tools
     interrupt_before=[
         "update_flight_sensitive_tools",
         "book_car_rental_sensitive_tools",

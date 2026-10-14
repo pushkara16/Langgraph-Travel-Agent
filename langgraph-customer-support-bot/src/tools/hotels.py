@@ -18,13 +18,6 @@ def search_hotels(
 ) -> list[dict]:
     """Search for hotels based on location, name, price tier, check-in date, and check-out date.
 
-    Args:
-        location (Optional[str]): The location of the hotel. Defaults to None.
-        name (Optional[str]): The name of the hotel. Defaults to None.
-        price_tier (Optional[str]): The price tier of the hotel. Defaults to None. Examples: Midscale, Upper Midscale, Upscale, Luxury
-        checkin_date (Optional[Union[datetime, date]]): The check-in date of the hotel. Defaults to None.
-        checkout_date (Optional[Union[datetime, date]]): The check-out date of the hotel. Defaults to None.
-
     Returns:
         list[dict]: A list of hotel dictionaries matching the search criteria.
     """
@@ -54,10 +47,6 @@ def search_hotels(
 @tool
 def book_hotel(hotel_id: int) -> str:
     """Book a hotel by its ID.
-
-    Args:
-        hotel_id (int): The ID of the hotel to book.
-
     Returns:
         str: A message indicating whether the hotel was successfully booked or not.
     """

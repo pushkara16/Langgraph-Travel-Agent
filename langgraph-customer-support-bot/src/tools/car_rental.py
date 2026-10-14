@@ -17,16 +17,6 @@ def search_car_rentals(
     end_date: Optional[Union[datetime, date]] = None,
 ) -> list[dict]:
     """Search for car rentals based on location, name, price tier, start date, and end date.
-
-    Args:
-        location (Optional[str]): The location of the car rental. Defaults to None.
-        name (Optional[str]): The name of the car rental company. Defaults to None.
-        price_tier (Optional[str]): The price tier of the car rental. Defaults to None.
-        start_date (Optional[Union[datetime, date]]): The start date of the car rental. Defaults to None.
-        end_date (Optional[Union[datetime, date]]): The end date of the car rental. Defaults to None.
-
-    Returns:
-        list[dict]: A list of car rental dictionaries matching the search criteria.
     """
     conn = sqlite3.connect(LOCAL_FILE)
     cursor = conn.cursor()
@@ -40,8 +30,7 @@ def search_car_rentals(
     if name:
         query += " AND name LIKE ?"
         params.append(f"%{name}%")
-    # For our tutorial, we will let you match on any dates and price tier.
-    # (since our toy dataset doesn't have much data)
+
     cursor.execute(query, params)
     results = cursor.fetchall()
 
@@ -83,14 +72,6 @@ def update_car_rental(
     end_date: Optional[Union[datetime, date]] = None,
 ) -> str:
     """Update a car rental's start and end dates by its ID.
-
-    Args:
-        rental_id (int): The ID of the car rental to update.
-        start_date (Optional[Union[datetime, date]]): The new start date of the car rental. Defaults to None.
-        end_date (Optional[Union[datetime, date]]): The new end date of the car rental. Defaults to None.
-
-    Returns:
-        str: A message indicating whether the car rental was successfully updated or not.
     """
     conn = sqlite3.connect(LOCAL_FILE)
     cursor = conn.cursor()
@@ -118,10 +99,8 @@ def update_car_rental(
 @tool
 def cancel_car_rental(rental_id: int) -> str:
     """Cancel a car rental by its ID.
-
     Args:
         rental_id (int): The ID of the car rental to cancel.
-
     Returns:
         str: A message indicating whether the car rental was successfully cancelled or not.
     """

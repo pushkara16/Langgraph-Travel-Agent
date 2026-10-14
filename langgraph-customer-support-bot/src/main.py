@@ -1,5 +1,5 @@
 from langchain_core.messages import HumanMessage
-from your_graph_file import graph  # change to your actual filename
+from graph import graph
 
 def run():
     # initial state

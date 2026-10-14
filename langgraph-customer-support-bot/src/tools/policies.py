@@ -41,8 +41,14 @@ class VectorStoreRetriever:
         ]
 
 
-retriever = None
+retriever = VectorStoreRetriever.from_docs(docs, openai.Client())
+
 
 @tool
 def lookup_policy(query: str) -> str:
-    return "Policy lookup disabled."
+    """Consult the company policies to check whether certain options are permitted.
+
+    Use this before making any flight changes performing other 'write' events.
+    """
+    docs = retriever.query(query, k=2)
+    return "\n\n".join([doc["page_content"] for doc in docs])

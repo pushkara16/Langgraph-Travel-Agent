@@ -13,10 +13,6 @@ LOCAL_FILE = "data/travel2.sqlite"
 @tool
 def fetch_user_flight_information(config: RunnableConfig) -> list[dict]:
     """Fetch all tickets for the user along with corresponding flight information and seat assignments.
-
-    Returns:
-        A list of dictionaries where each dictionary contains the ticket details,
-        associated flight details, and the seat assignments for each ticket belonging to the user.
     """
     configuration = config.get("configurable", {})
     passenger_id = configuration.get("passenger_id", None)
@@ -52,18 +48,17 @@ def fetch_user_flight_information(config: RunnableConfig) -> list[dict]:
 
 @tool
 def search_flights(
-    departure_airport: str = "",
-    arrival_airport: str = "",
-    start_time: str = "",
-    end_time: str = "",
+    departure_airport: Optional[str] = None,
+    arrival_airport: Optional[str] = None,
+    start_time: Optional[Union[date, datetime]] = None,
+    end_time: Optional[Union[date, datetime]] = None,
     limit: int = 20,
 ) -> list[dict]:
     """Search for flights based on departure airport, arrival airport, and departure time range."""
-
     conn = sqlite3.connect(LOCAL_FILE)
     cursor = conn.cursor()
 
-    query = "SELECT * FROM flights WHERE 1=1"
+    query = "SELECT * FROM flights WHERE 1 = 1"
     params = []
 
     if departure_airport:
@@ -81,13 +76,10 @@ def search_flights(
     if end_time:
         query += " AND scheduled_departure <= ?"
         params.append(end_time)
-
     query += " LIMIT ?"
     params.append(limit)
-
     cursor.execute(query, params)
     rows = cursor.fetchall()
-
     column_names = [column[0] for column in cursor.description]
     results = [dict(zip(column_names, row)) for row in rows]
 
@@ -139,7 +131,6 @@ def update_ticket_to_new_flight(
         conn.close()
         return "No existing ticket found for the given ticket number."
 
-    # Check the signed-in user actually has this ticket
     cursor.execute(
         "SELECT * FROM tickets WHERE ticket_no = ? AND passenger_id = ?",
         (ticket_no, passenger_id),
@@ -150,11 +141,6 @@ def update_ticket_to_new_flight(
         conn.close()
         return f"Current signed-in passenger with ID {passenger_id} not the owner of ticket {ticket_no}"
 
-    # In a real application, you'd likely add additional checks here to enforce business logic,
-    # like "does the new departure airport match the current ticket", etc.
-    # While it's best to try to be *proactive* in 'type-hinting' policies to the LLM
-    # it's inevitably going to get things wrong, so you **also** need to ensure your
-    # API enforces valid behavior
     cursor.execute(
         "UPDATE ticket_flights SET flight_id = ? WHERE ticket_no = ?",
         (new_flight_id, ticket_no),
