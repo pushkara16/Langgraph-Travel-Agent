@@ -63,24 +63,72 @@ llm = ChatGoogleGenerativeAI(
     temperature=0
 )
 
-def create_entry_node(assistant_name: str, new_dialog_state: str) -> Callable:
-    def entry_node(state: State) -> dict:
-        tool_call_id = state["messages"][-1].tool_calls[0]["id"]
-        return {
-            "messages": [
-                ToolMessage(
-                    content=f"The assistant is now the {assistant_name}. Reflect on the above conversation between the host assistant and the user."
-                    f" The user's intent is unsatisfied. Use the provided tools to assist the user. Remember, you are {assistant_name},"
-                    " and the booking, update, other other action is not complete until after you have successfully invoked the appropriate tool."
-                    " If the user changes their mind or needs help for other tasks, call the CompleteOrEscalate function to let the primary host assistant take control."
-                    " Do not mention who you are - just act as the proxy for the assistant.",
-                    tool_call_id=tool_call_id,
-                )
-            ],
-            "dialog_state": new_dialog_state,
-        }
+def enter_update_flight(state: State):
+    tool_call_id = state["messages"][-1].tool_calls[0]["id"]
+    return {
+        "messages": [
+            ToolMessage(
+                content="The assistant is now the Flight Updates & Booking Assistant. Reflect on the above conversation between the host assistant and the user."
+                " The user's intent is unsatisfied. Use the provided tools to assist the user. Remember, you are Flight Updates & Booking Assistant,"
+                " and the booking, update, other other action is not complete until after you have successfully invoked the appropriate tool."
+                " If the user changes their mind or needs help for other tasks, call the CompleteOrEscalate function to let the primary host assistant take control."
+                " Do not mention who you are - just act as the proxy for the assistant.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+        "dialog_state": "update_flight",
+    }
 
-    return entry_node
+
+def enter_book_car_rental(state: State):
+    tool_call_id = state["messages"][-1].tool_calls[0]["id"]
+    return {
+        "messages": [
+            ToolMessage(
+                content="The assistant is now the Car Rental Assistant. Reflect on the above conversation between the host assistant and the user."
+                " The user's intent is unsatisfied. Use the provided tools to assist the user. Remember, you are Car Rental Assistant,"
+                " and the booking, update, other other action is not complete until after you have successfully invoked the appropriate tool."
+                " If the user changes their mind or needs help for other tasks, call the CompleteOrEscalate function to let the primary host assistant take control."
+                " Do not mention who you are - just act as the proxy for the assistant.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+        "dialog_state": "book_car_rental",
+    }
+
+
+def enter_book_hotel(state: State):
+    tool_call_id = state["messages"][-1].tool_calls[0]["id"]
+    return {
+        "messages": [
+            ToolMessage(
+                content="The assistant is now the Hotel Booking Assistant. Reflect on the above conversation between the host assistant and the user."
+                " The user's intent is unsatisfied. Use the provided tools to assist the user. Remember, you are Hotel Booking Assistant,"
+                " and the booking, update, other other action is not complete until after you have successfully invoked the appropriate tool."
+                " If the user changes their mind or needs help for other tasks, call the CompleteOrEscalate function to let the primary host assistant take control."
+                " Do not mention who you are - just act as the proxy for the assistant.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+        "dialog_state": "book_hotel",
+    }
+
+
+def enter_book_excursion(state: State):
+    tool_call_id = state["messages"][-1].tool_calls[0]["id"]
+    return {
+        "messages": [
+            ToolMessage(
+                content="The assistant is now the Trip Recommendation Assistant. Reflect on the above conversation between the host assistant and the user."
+                " The user's intent is unsatisfied. Use the provided tools to assist the user. Remember, you are Trip Recommendation Assistant,"
+                " and the booking, update, other other action is not complete until after you have successfully invoked the appropriate tool."
+                " If the user changes their mind or needs help for other tasks, call the CompleteOrEscalate function to let the primary host assistant take control."
+                " Do not mention who you are - just act as the proxy for the assistant.",
+                tool_call_id=tool_call_id,
+            )
+        ],
+        "dialog_state": "book_excursion",
+    }
 
 
 update_flight_runnable = flight_booking_prompt | llm.bind_tools(
@@ -115,10 +163,7 @@ builder.add_node("fetch_user_info", user_info)
 builder.add_edge(START, "fetch_user_info")
 
 # Flight booking assistant
-builder.add_node(
-    "enter_update_flight",
-    create_entry_node("Flight Updates & Booking Assistant", "update_flight"),
-)
+builder.add_node("enter_update_flight", enter_update_flight)
 builder.add_node("update_flight", Assistant(update_flight_runnable))
 builder.add_edge("enter_update_flight", "update_flight")
 builder.add_node(
@@ -187,10 +232,8 @@ builder.add_edge("leave_skill", "primary_assistant")
 
 # Car rental assistant
 
-builder.add_node(
-    "enter_book_car_rental",
-    create_entry_node("Car Rental Assistant", "book_car_rental"),
-)
+builder.add_node("enter_book_car_rental", enter_book_car_rental)
+
 builder.add_node("book_car_rental", Assistant(book_car_rental_runnable))
 builder.add_edge("enter_book_car_rental", "book_car_rental")
 builder.add_node(
@@ -233,9 +276,8 @@ builder.add_conditional_edges(
 )
 
 # Hotel booking assistant
-builder.add_node(
-    "enter_book_hotel", create_entry_node("Hotel Booking Assistant", "book_hotel")
-)
+builder.add_node("enter_book_hotel", enter_book_hotel)
+
 builder.add_node("book_hotel", Assistant(book_hotel_runnable))
 builder.add_edge("enter_book_hotel", "book_hotel")
 builder.add_node(
@@ -273,10 +315,7 @@ builder.add_conditional_edges(
 )
 
 # Excursion assistant
-builder.add_node(
-    "enter_book_excursion",
-    create_entry_node("Trip Recommendation Assistant", "book_excursion"),
-)
+builder.add_node("enter_book_excursion", enter_book_excursion)
 builder.add_node("book_excursion", Assistant(book_excursion_runnable))
 builder.add_edge("enter_book_excursion", "book_excursion")
 builder.add_node(
